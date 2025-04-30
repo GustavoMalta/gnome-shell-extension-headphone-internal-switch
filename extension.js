@@ -34,8 +34,6 @@ const Gio = imports.gi.Gio;
 const GLib = imports.gi.GLib;
 const ByteArray = imports.byteArray;
 
-// let selected = "internal"
-// let hasHeadphone = false
 
 function hasHeadphoneActive() {
     try {
@@ -50,28 +48,6 @@ function hasHeadphoneActive() {
 
         throw Error(err)
 
-        //     console.log(proc)
-        // proc.force_exit();
-        // console.log("B")
-        // let [, stdout] = await new Promise((resolve, reject) => {
-        //     proc.communicate_utf8_async(null, null, (proc, res) => {
-        //         try {
-        //             let result = proc.communicate_utf8_finish(res);
-        //             resolve(result);
-        //         } catch (e) {
-        //             reject(e);
-        //         }
-        //     });
-        // });
-        // console.log("stdout")
-        // console.log(proc)
-        // if (stdout && typeof stdout === 'string') {
-        //     log('Saída do amixer: ' + stdout); // Pode remover depois
-        //     return stdout.includes('[on]');
-        // } else {
-        //     log('stdout indefinido ou não é string');
-        //     return false;
-        // }
     } catch (e) {
         logError(e, 'Erro ao executar amixer');
         return false;
@@ -87,7 +63,6 @@ function watchAudioEvents(callback) {
         if (currentStatus !== lastStatus) {
             lastStatus = currentStatus;
             callback(currentStatus);
-            // hasHeadphone = true
         }
         console.log("currentStatus", currentStatus)
         return true;
@@ -98,7 +73,6 @@ const Indicator = GObject.registerClass(
     class Indicator extends PanelMenu.Button {
         _init() {
             super._init(0.0, _('My Shiny Indicator'));
-            // icon_name: 'audio-headphones-symbolic',
 
             const internalIcon = new St.Icon({
                 icon_name: 'audio-speakers-symbolic',
@@ -115,23 +89,14 @@ const Indicator = GObject.registerClass(
             let internal = new PopupMenu.PopupMenuItem(_('Internal Speakers'));
             let headphone = new PopupMenu.PopupMenuItem(_('Headphone'));
 
-            // if (selected == "internal"){
-            //     internal.setSensitive(false);
-            //     internal.setOrnament(PopupMenu.Ornament.CHECK);
-            //     headphone.setSensitive(true);
-            //     headphone.setOrnament(PopupMenu.Ornament.NONE);
-            //     this.add_child(internalIcon);
-            // } else {
             internal.setSensitive(true);
             internal.setOrnament(PopupMenu.Ornament.NONE);
             headphone.setSensitive(false);
             headphone.setOrnament(PopupMenu.Ornament.CHECK);
             this.add_child(headphoneIcon);
-            // }
+
 
             internal.connect('activate', async () => {
-                // Main.notify(_('Ativa'));
-                // 'amixer -c 0 set "Speaker" toggle 100'
                 let [ok, out, err, exit] = GLib.spawn_command_line_sync(
                     'amixer -c 0 set "Speaker" on 100'
                 );
@@ -148,9 +113,8 @@ const Indicator = GObject.registerClass(
             });
 
             headphone.connect('activate', () => {
-                // Main.notify(_('Desativa'));
                 let [ok, out, err, exit] = GLib.spawn_command_line_sync(
-                    'amixer -c 0 set "Speaker" off 100'
+                    'amixer -c 0 set "Speaker" off 0'
                 );
                 if (ok) {
                     headphone.setSensitive(false);
@@ -172,7 +136,6 @@ const Indicator = GObject.registerClass(
 class Extension {
     constructor(uuid) {
         watchAudioEvents((res) => {
-            console.log("state:", res);
             if (res) {
                 if (this._indicator == null) {
                     this._indicator = new Indicator();
@@ -185,12 +148,10 @@ class Extension {
         })
 
         this._uuid = uuid;
-
         ExtensionUtils.initTranslations(GETTEXT_DOMAIN);
     }
 
     enable() {
-        hasHeadphone = hasHeadphoneActive()
         this._indicator = new Indicator();
         Main.panel.addToStatusArea(this._uuid, this._indicator);
     }
