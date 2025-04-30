@@ -1,0 +1,1 @@
+# gnome-shell-extension-headphone-internal-switch

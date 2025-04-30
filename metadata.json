@@ -1,0 +1,6 @@
+{
+  "name": "Switch Internal/Headphone Audio",
+  "description": "Switch the audio output when headphones are conected",
+  "uuid": "headphone-internal-switch@gustavomalta.github.com",
+  "shell-version": ["42"]
+}
