@@ -1,6 +1,8 @@
 {
   "name": "Switch Internal/Headphone Audio",
-  "description": "Switch the audio output when headphones are conected",
+  "description": "Adds a button to the top bar that enables internal speakers manually. This extension acts as a workaround when the headphones are plugged in but the system doesn't expose both audio outputs. ",
   "uuid": "headphone-internal-switch@gustavomalta.github.com",
-  "shell-version": ["42"]
+  "shell-version": ["42"],
+  "url": "https://github.com/GustavoMalta/gnome-shell-extension-headphone-internal-switch",
+  "version": 1.0
 }
