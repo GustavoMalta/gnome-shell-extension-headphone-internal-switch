@@ -157,6 +157,10 @@ class Extension {
     }
 
     disable() {
+        if (hasHeadphoneActive())
+            GLib.spawn_command_line_sync(
+                'amixer -c 0 set "Speaker" off'
+            );
         this._indicator.destroy();
         this._indicator = null;
     }
