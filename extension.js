@@ -47,7 +47,6 @@ const items = {
 let lastStatus = null;
 let lastSpeakerStatus = null;
 let lastHeadphoneStatus = null;
-let isTopIconSpeaker = false;
 
 async function setSelected(selected, that, active = null) {
     if (selected == "internal") {
@@ -72,20 +71,22 @@ async function setSelected(selected, that, active = null) {
         }
     }
 
-    if (items.internal.item._ornament == PopupMenu.Ornament.CHECK)
-        try {
-            if (isTopIconSpeaker == false) {
+    try {
+        if (items.internal.item._ornament == PopupMenu.Ornament.CHECK) {
+            if (items.headphone.icon.get_parent() == that) {
                 that.remove_child(items.headphone.icon);
                 that.add_child(items.internal.icon);
-                isTopIconSpeaker = true;
             }
-        } catch { }
-    else
-        try {
-            that.remove_child(items.internal.icon);
-            that.add_child(items.headphone.icon);
-            isTopIconSpeaker = false;
-        } catch { }
+        }
+        else {
+            if (items.internal.icon.get_parent() == that)
+                that.remove_child(items.internal.icon);
+            if (items.headphone.icon.get_parent() != that)
+                that.add_child(items.headphone.icon);
+        }
+    } catch (e) {
+        logError(e, "Fail switch topBar icon:")
+    }
 }
 
 
@@ -109,17 +110,17 @@ async function hasHeadphoneActive() {
 async function execCommand(argv) {
     let cancelId = 0;
 
-    const cancellable = new Gio.Cancellable();
+    const proc = new Gio.Subprocess({
+        argv,
+        flags: Gio.SubprocessFlags.STDOUT_PIPE |
+            Gio.SubprocessFlags.STDERR_PIPE,
+    });
 
-    if (cancellable instanceof Gio.Cancellable)
-        cancelId = cancellable.connect(() => proc.force_exit());
+    const cancellable = new Gio.Cancellable();
+    cancelId = cancellable.connect(() => proc.force_exit());
 
     try {
-        const proc = new Gio.Subprocess({
-            argv,
-            flags: Gio.SubprocessFlags.STDOUT_PIPE |
-                Gio.SubprocessFlags.STDERR_PIPE,
-        });
+
         proc.init(cancellable);
 
         const [success, response] =
@@ -281,19 +282,25 @@ class Extension {
         });
     }
 
-    async disable() {
+    disable() {
+        lastStatus = null;
+        lastSpeakerStatus = null;
+        lastHeadphoneStatus = null;
+
         try {
-            if (await hasHeadphoneActive())
-                await execCommand(['amixer', '-c', '0', 'set', 'Speaker', 'off', '0']);
+            if (this._sourceId) {
+                GLib.Source.remove(this._sourceId);
+                this._sourceId = null;
+            }
+            if (this._indicator) {
+                this._indicator.destroy();
+                this._indicator = null;
+                execCommand(['amixer', '-c', '0', 'set', 'Speaker', 'off', '0']);
+                execCommand(['amixer', '-c', '0', 'set', 'Headphone', '100']);
+            }
         } catch (error) {
             logError(error, "Fail on restore amixer:")
         }
-        if (this._sourceId) {
-            GLib.Source.remove(this._sourceId);
-            this._sourceId = null;
-        }
-        this._indicator.destroy();
-        this._indicator = null;
     }
 }
 
