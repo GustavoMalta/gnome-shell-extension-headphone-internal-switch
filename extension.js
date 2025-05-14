@@ -32,6 +32,73 @@ const _ = ExtensionUtils.gettext;
 const Gio = imports.gi.Gio;
 
 const GLib = imports.gi.GLib;
+// const TextDecoder = imports.TextDecoder;
+
+const items = {
+    internal: {
+        item: null,
+        icon: null
+    },
+    headphone: {
+        item: null,
+        icon: null
+    }
+}
+
+async function setSelected(items, selected, that, active = null) {
+
+    console.log("................")
+    console.log(items.internal.item._ornament == PopupMenu.Ornament.CHECK)
+    console.log(items.headphone.item._ornament == PopupMenu.Ornament.CHECK)
+    console.log("................")
+    if (selected == "internal") {
+        // items.internal.item.setSensitive(false);
+        if (active != null)
+
+            if (active)
+                items.internal.item.setOrnament(PopupMenu.Ornament.CHECK);
+            else
+                items.internal.item.setOrnament(PopupMenu.Ornament.NONE);
+
+        else
+
+            if (items.internal.item._ornament == PopupMenu.Ornament.CHECK) {
+                items.internal.item.setOrnament(PopupMenu.Ornament.NONE);
+            }
+            else {
+                items.internal.item.setOrnament(PopupMenu.Ornament.CHECK);
+                // items.headphone.item.setSensitive(true);
+                // items.headphone.item.setOrnament(PopupMenu.Ornament.NONE);
+            }
+    } else {
+        if (active != null)
+
+            if (active)
+                items.headphone.item.setOrnament(PopupMenu.Ornament.CHECK);
+            else
+                items.headphone.item.setOrnament(PopupMenu.Ornament.NONE);
+
+        else
+
+            if (items.headphone.item._ornament == PopupMenu.Ornament.CHECK) {
+                items.headphone.item.setOrnament(PopupMenu.Ornament.NONE);
+            }
+            else
+                items.headphone.item.setOrnament(PopupMenu.Ornament.CHECK);
+    }
+
+    if (items.internal.item._ornament == PopupMenu.Ornament.CHECK)
+        try {
+            that.remove_child(items.headphone.icon);
+            that.add_child(items.internal.icon);
+        } catch { }
+    else
+        try {
+            that.remove_child(items.internal.icon);
+            that.add_child(items.headphone.icon);
+        } catch { }
+
+}
 
 
 async function hasHeadphoneActive() {
@@ -104,6 +171,22 @@ const Indicator = GObject.registerClass(
         _init() {
             super._init(0.0, _('Headphone Switch Indicator'));
 
+            items.internal = {
+                item: new PopupMenu.PopupMenuItem(_('Internal Speakers')),
+                icon: new St.Icon({
+                    icon_name: 'audio-speakers-symbolic',
+                    style_class: 'system-status-icon',
+                })
+            }
+            items.headphone = {
+                item: new PopupMenu.PopupMenuItem(_('Headphone')),
+                icon: new St.Icon({
+                    icon_name: 'audio-headphones-symbolic',
+                    style_class: 'system-status-icon',
+                })
+            }
+
+            // console.log(items)
             const internalIcon = new St.Icon({
                 icon_name: 'audio-speakers-symbolic',
                 style_class: 'system-status-icon',
@@ -121,44 +204,62 @@ const Indicator = GObject.registerClass(
             async function setInitialState(that) {
                 try {
 
-                    const [ok, out] = await execCommand(['amixer', '-c0', 'get', 'Speaker'])
+                    const [okSpeaker, outSpeaker] = await execCommand(['amixer', '-c0', 'get', 'Speaker'])
+
+                    const [okHeadphone, outHeadphone] = await execCommand(['amixer', '-c0', 'get', 'Headphone'])
                     //if has phone and the scpeaker was active
                     let speakerActive = false;
-                    if (ok && out.length > 0) {
-                        speakerActive = out[0].includes('[on]')
+                    if (okSpeaker && outSpeaker.length > 0) {
+                        speakerActive = outSpeaker[0].includes('[on]')
                     }
-                    if (speakerActive && await hasHeadphoneActive()) {
-                        internal.setSensitive(false);
-                        internal.setOrnament(PopupMenu.Ornament.CHECK);
-                        headphone.setSensitive(true);
-                        headphone.setOrnament(PopupMenu.Ornament.NONE);
-                        that.add_child(internalIcon);
-                    } else {
-                        internal.setSensitive(true);
-                        internal.setOrnament(PopupMenu.Ornament.NONE);
-                        headphone.setSensitive(false);
-                        headphone.setOrnament(PopupMenu.Ornament.CHECK);
-                        that.add_child(headphoneIcon);
+                    let headphoneActive = false;
+                    if (okHeadphone && outHeadphone.length > 0) {
+                        headphoneActive = !outHeadphone[0].includes('[0%]')
                     }
+
+                    setSelected(items, 'internal', that, speakerActive)
+
+                    setSelected(items, "headphone", that, headphoneActive)
+
+                    // if (speakerActive && await hasHeadphoneActive()) {
+                    //     internal.setSensitive(false);
+                    //     internal.setOrnament(PopupMenu.Ornament.CHECK);
+                    //     headphone.setSensitive(true);
+                    //     headphone.setOrnament(PopupMenu.Ornament.NONE);
+                    //     that.add_child(internalIcon);
+                    // } else {
+                    //     internal.setSensitive(true);
+                    //     internal.setOrnament(PopupMenu.Ornament.NONE);
+                    //     headphone.setSensitive(false);
+                    //     headphone.setOrnament(PopupMenu.Ornament.CHECK);
+                    //     that.add_child(headphoneIcon);
+                    // }
                 } catch (error) {
                     logError(error, 'Fail to set initial state');
                 }
             }
 
-            setInitialState(this);
+            // setInitialState(this);
 
 
 
-            internal.connect('activate', async () => {
+            items.internal.item.connect('activate', async () => {
                 try {
-                    const [success] = await execCommand(['amixer', '-c', '0', 'set', 'Speaker', 'on', '100']);
+                    if (items.internal.item._ornament == PopupMenu.Ornament.CHECK && items.headphone.item._ornament == PopupMenu.Ornament.NONE) return
+
+                    let cmd = ['amixer', '-c', '0', 'set', 'Speaker', 'on', '100']
+                    if (items.internal.item._ornament == PopupMenu.Ornament.CHECK)
+                        cmd = ['amixer', '-c', '0', 'set', 'Speaker', 'off', '0'];
+
+                    const [success] = await execCommand(cmd);
                     if (success) {
-                        internal.setSensitive(false);
-                        internal.setOrnament(PopupMenu.Ornament.CHECK);
-                        headphone.setSensitive(true);
-                        headphone.setOrnament(PopupMenu.Ornament.NONE);
-                        this.remove_child(headphoneIcon);
-                        this.add_child(internalIcon);
+                        // this.remove_child(items.headphone.icon);
+                        await setSelected(items, 'internal', this)
+                        // internal.setSensitive(false);
+                        // internal.setOrnament(PopupMenu.Ornament.CHECK);
+                        // headphone.setSensitive(true);
+                        // headphone.setOrnament(PopupMenu.Ornament.NONE);
+                        // this.add_child(internalIcon);
                     } else {
                         throw Error('Fail on active internal')
                     }
@@ -168,16 +269,18 @@ const Indicator = GObject.registerClass(
                 }
             });
 
-            headphone.connect('activate', async () => {
+            items.headphone.item.connect('activate', async () => {
                 try {
-                    const [success] = await execCommand(['amixer', '-c', '0', 'set', 'Speaker', 'off', '0']);
+                    if (items.headphone.item._ornament == PopupMenu.Ornament.CHECK && items.internal.item._ornament == PopupMenu.Ornament.NONE) return
+
+                    let cmd = ['amixer', '-c', '0', 'set', 'Headphone', '100']
+                    if (items.headphone.item._ornament == PopupMenu.Ornament.CHECK)
+                        cmd = ['amixer', '-c', '0', 'set', 'Headphone', '0'];
+
+                    const [success] = await execCommand(cmd);
                     if (success) {
-                        headphone.setSensitive(false);
-                        headphone.setOrnament(PopupMenu.Ornament.CHECK);
-                        internal.setSensitive(true);
-                        internal.setOrnament(PopupMenu.Ornament.NONE);
-                        this.remove_child(internalIcon);
-                        this.add_child(headphoneIcon);
+                        // this.remove_child(items.internal.icon);
+                        await setSelected(items, 'headphone', this)
                     } else {
                         throw Error('Fail on active headphone')
                     }
@@ -187,8 +290,8 @@ const Indicator = GObject.registerClass(
                 }
             });
 
-            this.menu.addMenuItem(internal);
-            this.menu.addMenuItem(headphone);
+            this.menu.addMenuItem(items.internal.item);
+            this.menu.addMenuItem(items.headphone.item);
         }
     });
 
@@ -200,12 +303,39 @@ class Extension {
 
     enable() {
         let lastStatus = null;
+        let lastSpeakerStatus = null;
+        let lastHeadphoneStatus = null;
         this._indicator = null;
 
-        this._sourceId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 2, async () => {
+        const checkStatus = async () => {
             try {
 
                 const currentStatus = await hasHeadphoneActive();
+                if (this._indicator != null) {
+
+                    const [okSpeaker, outSpeaker] = await execCommand(['amixer', '-c0', 'get', 'Speaker'])
+                    if (okSpeaker && outSpeaker.length > 0) {
+                        const currentSpeakerStatus = outSpeaker[0].includes('[on]')
+                        console.log("currentSpeakerStatus", currentSpeakerStatus)
+                        if (currentSpeakerStatus != lastSpeakerStatus) {
+                            lastSpeakerStatus = currentSpeakerStatus;
+                            await setSelected(items, 'internal', this._indicator, currentSpeakerStatus)
+                        }
+                    }
+
+                    const [okHead, outHead] = await execCommand(['amixer', '-c0', 'get', 'Headphone'])
+                    if (okHead && outHead.length > 0) {
+                        const currentHeadphoneStatus = !outHead[0].includes('[0%]')
+                        console.log(outHead)
+                        console.log("currentHeadphoneStatus", currentHeadphoneStatus)
+
+                        if (currentHeadphoneStatus != lastHeadphoneStatus) {
+                            lastHeadphoneStatus = currentHeadphoneStatus;
+                            await setSelected(items, "headphone", this._indicator, currentHeadphoneStatus)
+                        }
+                    }
+
+                }
 
                 if (currentStatus != lastStatus) {
                     lastStatus = currentStatus;
@@ -213,6 +343,7 @@ class Extension {
                         if (this._indicator == null) {
                             this._indicator = new Indicator();
                             Main.panel.addToStatusArea(this._uuid, this._indicator);
+                            await setSelected(items, "headphone", this._indicator, true)
                         }
                     } else {
                         if (this._indicator != null) {
@@ -225,6 +356,11 @@ class Extension {
             } catch (error) {
                 logError(error, "Fail to check headphone status")
             }
+        }
+
+        checkStatus();
+        this._sourceId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 2, async () => {
+            await checkStatus();
             return GLib.SOURCE_CONTINUE;
         });
     }
