@@ -59,7 +59,7 @@ async function setSelected(selected, that, active = null) {
             const newStatus = !isCurrentlyChecked;
             items.internal.item.setOrnament(newStatus ? PopupMenu.Ornament.CHECK : PopupMenu.Ornament.NONE);
             lastSpeakerStatus = newStatus;
-            }
+        }
     } else {
         if (active != null) {
             items.headphone.item.setOrnament(active ? PopupMenu.Ornament.CHECK : PopupMenu.Ornament.NONE);
@@ -75,8 +75,8 @@ async function setSelected(selected, that, active = null) {
     if (items.internal.item._ornament == PopupMenu.Ornament.CHECK)
         try {
             if (isTopIconSpeaker == false) {
-            that.remove_child(items.headphone.icon);
-            that.add_child(items.internal.icon);
+                that.remove_child(items.headphone.icon);
+                that.add_child(items.internal.icon);
                 isTopIconSpeaker = true;
             }
         } catch { }
@@ -174,7 +174,8 @@ const Indicator = GObject.registerClass(
 
             items.internal.item.connect('activate', async () => {
                 try {
-                    if (items.internal.item._ornament == PopupMenu.Ornament.CHECK && items.headphone.item._ornament == PopupMenu.Ornament.NONE) return
+                    if (items.internal.item._ornament == PopupMenu.Ornament.CHECK && items.headphone.item._ornament == PopupMenu.Ornament.NONE)
+                        items.headphone.item.activate(null);
 
                     let cmd = ['amixer', '-c', '0', 'set', 'Speaker', 'on', '100']
                     if (items.internal.item._ornament == PopupMenu.Ornament.CHECK)
@@ -194,7 +195,8 @@ const Indicator = GObject.registerClass(
 
             items.headphone.item.connect('activate', async () => {
                 try {
-                    if (items.headphone.item._ornament == PopupMenu.Ornament.CHECK && items.internal.item._ornament == PopupMenu.Ornament.NONE) return
+                    if (items.headphone.item._ornament == PopupMenu.Ornament.CHECK && items.internal.item._ornament == PopupMenu.Ornament.NONE)
+                        items.internal.item.activate(null);
 
                     let cmd = ['amixer', '-c', '0', 'set', 'Headphone', '100']
                     if (items.headphone.item._ornament == PopupMenu.Ornament.CHECK)
