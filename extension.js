@@ -16,22 +16,16 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-/* exported init */
+import GObject from 'gi://GObject';
+import St from 'gi://St';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
 
-const GETTEXT_DOMAIN = 'my-indicator-extension';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
+import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
-const { GObject, St } = imports.gi;
-
-const ExtensionUtils = imports.misc.extensionUtils;
-const Main = imports.ui.main;
-const PanelMenu = imports.ui.panelMenu;
-const PopupMenu = imports.ui.popupMenu;
-
-const _ = ExtensionUtils.gettext;
-
-const Gio = imports.gi.Gio;
-
-const GLib = imports.gi.GLib;
+import { Extension, gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 
 const items = {
     internal: {
@@ -173,6 +167,8 @@ const Indicator = GObject.registerClass(
                 })
             }
 
+            this.add_child(items.headphone.icon);
+
             items.internal.item.connect('activate', async () => {
                 try {
                     if (items.internal.item._ornament == PopupMenu.Ornament.CHECK && items.headphone.item._ornament == PopupMenu.Ornament.NONE)
@@ -218,20 +214,19 @@ const Indicator = GObject.registerClass(
             this.menu.addMenuItem(items.internal.item);
             this.menu.addMenuItem(items.headphone.item);
         }
+
+        setIcon(iconName) {
+            this._icon.icon_name = iconName;
+        }
     });
 
-class Extension {
-    constructor(uuid) {
-        this._uuid = uuid;
-        ExtensionUtils.initTranslations(GETTEXT_DOMAIN);
-    }
-
+export default class HeadphoneSwitchExtension extends Extension {
     enable() {
-        this._indicator = null;
+        this._indicator = new Indicator();
+        Main.panel.addToStatusArea(this.uuid, this._indicator);
 
         const checkStatus = async () => {
             try {
-
                 const currentStatus = await hasHeadphoneActive();
                 if (this._indicator != null) {
 
@@ -271,39 +266,28 @@ class Extension {
                 }
 
             } catch (error) {
-                logError(error, "Fail to check headphone status")
+                logError(error, "Fail to check headphone status");
             }
-        }
+        };
 
         checkStatus();
-        this._sourceId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 2, async () => {
-            await checkStatus();
+        this._sourceId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 2, () => {
+            checkStatus();
             return GLib.SOURCE_CONTINUE;
         });
     }
 
     disable() {
+        if (this._sourceId) {
+            GLib.Source.remove(this._sourceId);
+            this._sourceId = null;
+        }
+        if (this._indicator) {
+            this._indicator.destroy();
+            this._indicator = null;
+        }
         lastStatus = null;
         lastSpeakerStatus = null;
         lastHeadphoneStatus = null;
-
-        try {
-            if (this._sourceId) {
-                GLib.Source.remove(this._sourceId);
-                this._sourceId = null;
-            }
-            if (this._indicator) {
-                this._indicator.destroy();
-                this._indicator = null;
-                execCommand(['amixer', '-c', '0', 'set', 'Speaker', 'off', '0']);
-                execCommand(['amixer', '-c', '0', 'set', 'Headphone', '100']);
-            }
-        } catch (error) {
-            logError(error, "Fail on restore amixer:")
-        }
     }
-}
-
-function init(meta) {
-    return new Extension(meta.uuid);
 }
